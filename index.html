@@ -1,6 +1,19 @@
 <!DOCTYPE html>
 <html lang="fr" class="h-full">
 <head>
+    <!-- 1. Ajoute le script Supabase dans le <head> de ton index.html -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+<script>
+  // 2. Initialise ton client Supabase avec tes vraies informations
+  const SUPABASE_URL = 'https://ltptltgezwlfosqyqjpy.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_pNy87RfNOIyLEM2lQRCUqg_pp2n9BCW';
+  
+  const { createClient } = supabase;
+  const _supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+  console.log("Connexion à LEA Connect Cloud établie !");
+</script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LEA Connect - Connexion & Application</title>
