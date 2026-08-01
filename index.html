@@ -1,19 +1,6 @@
 <!DOCTYPE html>
 <html lang="fr" class="h-full">
 <head>
-    <!-- 1. Ajoute le script Supabase dans le <head> de ton index.html -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
-<script>
-  // 2. Initialise ton client Supabase avec tes vraies informations
-  const SUPABASE_URL = 'https://ltptltgezwlfosqyqjpy.supabase.co';
-  const SUPABASE_KEY = 'sb_publishable_pNy87RfNOIyLEM2lQRCUqg_pp2n9BCW';
-  
-  const { createClient } = supabase;
-  const _supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-
-  console.log("Connexion à LEA Connect Cloud établie !");
-</script>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LEA Connect - Connexion & Application</title>
@@ -30,6 +17,8 @@
             }
         }
     </script>
+    <!-- Supabase Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <link rel="manifest" href="manifest.json">
 </head>
 <body class="h-full bg-slate-100 dark:bg-slate-950 text-slate-800 dark:text-slate-100 transition-colors duration-200 flex items-center justify-center">
@@ -107,8 +96,10 @@
                 </div>
 
                 <div>
-                    <h3 class="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">Fil d'actualités</h3>
-                    <div id="news-feed" class="space-y-3"></div>
+                    <h3 class="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-3">Fil d'actualités en direct</h3>
+                    <div id="news-feed" class="space-y-3">
+                        <p class="text-xs text-slate-400 italic">Chargement du cloud...</p>
+                    </div>
                 </div>
             </div>
 
@@ -118,7 +109,9 @@
                     <h3 class="text-sm font-semibold text-slate-400 uppercase tracking-wider">Forum d'entraide</h3>
                     <button onclick="openQuestionModal()" class="text-xs bg-indigo-600 text-white px-3 py-1.5 rounded-lg font-medium">Poser une question</button>
                 </div>
-                <div id="forum-feed" class="space-y-3"></div>
+                <div id="forum-feed" class="space-y-3">
+                    <p class="text-xs text-slate-400 italic">Chargement du forum...</p>
+                </div>
             </div>
 
             <!-- ONGLET 3 : PROFIL -->
@@ -135,7 +128,7 @@
                     <h4 class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Mes Badges 🏆</h4>
                     <div class="grid grid-cols-2 gap-2 text-xs">
                         <div class="p-2.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-300 font-medium flex items-center gap-2">
-                            <span>🥇</span> Compte actif
+                            <span>🥇</span> Compte actif Cloud
                         </div>
                     </div>
                 </div>
@@ -185,17 +178,14 @@
 
     </div>
 
-    <!-- Script de gestion des comptes -->
+    <!-- Script de gestion et connexion Supabase -->
     <script>
+        // Configuration Supabase
+        const SUPABASE_URL = 'https://ltptltgezwlfosqyqjpy.supabase.co';
+        const SUPABASE_KEY = 'sb_publishable_pNy87RfNOIyLEM2lQRCUqg_pp2n9BCW';
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
         let currentUser = JSON.parse(localStorage.getItem('lea_user')) || null;
-
-        let posts = JSON.parse(localStorage.getItem('lea_posts')) || [
-            { author: 'Administration', roleColor: 'text-indigo-500', time: 'Il y a 10 min', title: 'Changement de salle - 1ère Spé', content: "Le cours d'histoire-géo de 14h se fera en salle C12." }
-        ];
-
-        let questions = JSON.parse(localStorage.getItem('lea_questions')) || [
-            { author: 'Lucas (1ère S)', time: 'Il y a 25 min', title: "Je n'ai pas compris l'exercice 4 de maths.", answer: "Pense à utiliser la formule explicite." }
-        ];
 
         // Vérifier si un utilisateur est déjà connecté au chargement
         if (currentUser) {
@@ -227,17 +217,14 @@
             document.getElementById('auth-screen').classList.add('hidden');
             document.getElementById('app-screen').classList.remove('hidden');
 
-            // Mettre à jour les informations du profil
             const roleName = currentUser.role === 'eleve' ? 'Élève 👨‍🎓' : currentUser.role === 'prof' ? 'Professeur 👨‍🏫' : 'Administration 👨‍💼';
             document.getElementById('user-display-info').innerText = `${currentUser.name} (${roleName})`;
             document.getElementById('profile-name').innerText = currentUser.name;
             document.getElementById('profile-role-desc').innerText = `${roleName} • Lycée Jean Mermoz`;
 
-            // Initialiser les initiales de l'avatar
             const initials = currentUser.name.split(' ').map(n => n[0]).join('').toUpperCase();
             document.getElementById('profile-avatar').innerText = initials || 'JD';
 
-            // Gérer l'affichage des actions admin/prof
             const adminActions = document.getElementById('admin-actions');
             if (currentUser.role === 'eleve') {
                 adminActions.classList.add('hidden');
@@ -263,37 +250,63 @@
             activeNav.classList.add('text-indigo-600', 'dark:text-indigo-400');
         }
 
-        function renderPosts() {
+        // Récupérer les annonces depuis Supabase
+        async function renderPosts() {
             const feed = document.getElementById('news-feed');
+            feed.innerHTML = '<p class="text-xs text-slate-400 italic">Chargement...</p>';
+
+            const { data, error } = await _supabase
+                .from('annonces')
+                .select('*')
+                .order('id', { ascending: false });
+
+            if (error || !data || data.length === 0) {
+                feed.innerHTML = `<p class="text-xs text-slate-400 italic">Aucune annonce pour le moment.</p>`;
+                return;
+            }
+
             feed.innerHTML = '';
-            posts.forEach(p => {
+            data.forEach(p => {
                 feed.innerHTML += `
-                        <div class="p-4 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
-                            <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
-                                <span class="text-indigo-500 font-medium">${p.author}</span>
-                                <span>${p.time}</span>
-                            </div>
-                            <h4 class="font-semibold text-sm">${p.title}</h4>
-                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">${p.content}</p>
+                    <div class="p-4 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm">
+                        <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
+                            <span class="text-indigo-500 font-medium">${p.author || 'Administration'}</span>
+                            <span>${p.time || 'Récemment'}</span>
                         </div>
-                    `;
+                        <h4 class="font-semibold text-sm">${p.title}</h4>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-1">${p.content}</p>
+                    </div>
+                `;
             });
         }
 
-        function renderForum() {
+        // Récupérer le forum depuis Supabase
+        async function renderForum() {
             const feed = document.getElementById('forum-feed');
+            feed.innerHTML = '<p class="text-xs text-slate-400 italic">Chargement...</p>';
+
+            const { data, error } = await _supabase
+                .from('questions')
+                .select('*')
+                .order('id', { ascending: false });
+
+            if (error || !data || data.length === 0) {
+                feed.innerHTML = `<p class="text-xs text-slate-400 italic">Aucune question sur le forum.</p>`;
+                return;
+            }
+
             feed.innerHTML = '';
-            questions.forEach(q => {
+            data.forEach(q => {
                 feed.innerHTML += `
-                        <div class="p-4 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm space-y-2">
-                            <div class="flex justify-between items-center text-xs text-slate-400">
-                                <span class="text-indigo-500 font-medium">${q.author}</span>
-                                <span>${q.time}</span>
-                            </div>
-                            <h4 class="font-semibold text-sm">${q.title}</h4>
-                            ${q.answer ? `<p class="text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 p-2.5 rounded-lg"><strong class="text-slate-700 dark:text-slate-300">Réponse :</strong> ${q.answer}</p>` : ''}
+                    <div class="p-4 rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm space-y-2">
+                        <div class="flex justify-between items-center text-xs text-slate-400">
+                            <span class="text-indigo-500 font-medium">${q.author}</span>
+                            <span>${q.time || 'Récemment'}</span>
                         </div>
-                    `;
+                        <h4 class="font-semibold text-sm">${q.title}</h4>
+                        ${q.answer ? `<p class="text-xs text-slate-500 dark:text-slate-400 bg-slate-50 dark:bg-slate-800 p-2.5 rounded-lg"><strong class="text-slate-700 dark:text-slate-300">Réponse :</strong> ${q.answer}</p>` : ''}
+                    </div>
+                `;
             });
         }
 
@@ -301,26 +314,44 @@
         function openQuestionModal() { document.getElementById('question-modal').classList.remove('hidden'); }
         function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
 
-        function addPost() {
+        // Envoyer une annonce sur Supabase
+        async function addPost() {
             const title = document.getElementById('post-title').value;
             const content = document.getElementById('post-content').value;
             if (!title || !content) return alert("Remplis tous les champs !");
-            posts.unshift({ author: currentUser.name, roleColor: 'text-indigo-500', time: "À l'instant", title, content });
-            localStorage.setItem('lea_posts', JSON.stringify(posts));
-            document.getElementById('post-title').value = '';
-            document.getElementById('post-content').value = '';
-            closeModal('post-modal');
-            renderPosts();
+
+            const { error } = await _supabase
+                .from('annonces')
+                .insert([{ author: currentUser.name, time: "À l'instant", title, content }]);
+
+            if (error) {
+                alert("Erreur lors de la publication sur le cloud.");
+                console.error(error);
+            } else {
+                document.getElementById('post-title').value = '';
+                document.getElementById('post-content').value = '';
+                closeModal('post-modal');
+                renderPosts();
+            }
         }
 
-        function addQuestion() {
+        // Envoyer une question sur Supabase
+        async function addQuestion() {
             const title = document.getElementById('q-title').value;
             if (!title) return alert("Écris une question !");
-            questions.unshift({ author: currentUser.name, time: "À l'instant", title, answer: null });
-            localStorage.setItem('lea_questions', JSON.stringify(questions));
-            document.getElementById('q-title').value = '';
-            closeModal('question-modal');
-            renderForum();
+
+            const { error } = await _supabase
+                .from('questions')
+                .insert([{ author: currentUser.name, time: "À l'instant", title, answer: null }]);
+
+            if (error) {
+                alert("Erreur lors de l'envoi de la question.");
+                console.error(error);
+            } else {
+                document.getElementById('q-title').value = '';
+                closeModal('question-modal');
+                renderForum();
+            }
         }
     </script>
 </body>
